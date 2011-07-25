@@ -1,0 +1,25 @@
+{
+    "name": "Pigeon Carrier",
+    "version": "1.0",
+    "description": "No, we don't carry pigeons, but we do carry your Twitter attachments!",
+
+    "background_page": "background.html",
+    "content_scripts": [
+        {
+            "matches": ["http://twitter.com/*", "https://twitter.com/*"],
+            "js": ["jquery-1.6.2.min.js", "fancybox/jquery.fancybox-1.3.4.pack.js", "scribd/view.js", "content-script.js"],
+            "css": ["content-style.css", "fancybox/jquery.fancybox-1.3.4.css"]
+        }
+    ],
+
+    "permissions": [
+        "tabs", "http://twitter.com/*", "https://api.dropbox.com/*",
+        "https://api-content.dropbox.com/*", "unlimitedStorage"
+    ],
+
+    "icons": {
+        "128": "pigeon-logo.png",
+        "48": "pigeon-logo-48.png",
+        "16": "pigeon-logo-16.png"
+    }
+}

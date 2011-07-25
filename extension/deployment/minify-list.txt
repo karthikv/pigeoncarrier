@@ -1,0 +1,7 @@
+background-script.js
+content-script.js
+content-style.css
+scribd/view.js
+oauth/chrome_ex_oauth.js
+oauth/chrome_ex_oauthsimple.js
+fancybox/jquery.fancybox-1.3.4.css
