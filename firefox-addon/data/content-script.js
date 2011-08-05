@@ -1,13 +1,6 @@
 // self-invoking anonymous function to prevent pollution of the global namespace
 (function( $, undefined ) {
 
-    var baseUrl; // base url string
-
-/****** Get base url string from addon script *********************************/
-    self.on( 'message', function( message ) {
-        baseUrl = message;
-    } );
-
 /****** LOGGING ***************************************************************/
 
     var development = true; // uncompressed file is used in development
@@ -30,6 +23,15 @@
         if( console && development )
             console.assert( condition );
     }
+
+/****** RESOURCE URL **********************************************************/
+
+    var resourceURL; // resource url string
+
+    self.port.on( 'resourceURLTransfer', function( url ) {
+        log( 'Resource URL obtained: ' + url );
+        resourceURL = url;
+    } );
 
     var 
 
@@ -93,16 +95,29 @@
         // Dropbox helper object
         Dropbox = {
             request: function( url, method, parameters, callback ) {
-                // chrome.extension.sendRequest( {
-                //     type: 'signed_request',
-                //     url: url,
-                //     data: {
-                //         method: method,
-                //         parameters: parameters
-                //     }
-                // }, function( xhr ) {
-                //     Dropbox.xhrCallback( xhr, callback );
-                // } );
+                var parameters = OAuthSimple().sign( {
+                    action: method,
+                    path: url,
+                    parameters: parameters,
+                    signatures: {
+                        consumer_key: 'c55r4vo6vfmxx08',
+                        shared_secret: 'qa5k89zc3vxcusx',
+                        oauth_token: LocalStorage.get( 'token' ),
+                        oauth_secret: LocalStorage.get( 'secret' )
+                    }
+                } ).parameters;
+
+                log( 'Sending request: ' + method + ' ' + url + ' ' + parameters );
+
+                $.ajax( {
+                    type: 'GET',
+                    url: 'https://api.dropbox.com/0/metadata/dropbox/Public/pigeon-carrier',
+                    data: parameters,
+                    complete: function( xhr ) {
+                        log( 'XHR: ' + xhr.status + ' ' + xhr.responseText );
+                        Dropbox.xhrCallback( xhr, callback );
+                    }
+                } );
             },
 
             metadata: function( path, callback ) {
@@ -247,15 +262,17 @@
     $(function() {
 
 /****** LOAD CSS FILES ********************************************************/
-    (function loadDynamicFiles() {
-        if( baseUrl == undefined ) {
-            log( "attempted to init dynamic files, failed." );
-            setTimeout( loadDynamicFiles, 500 );
-        } else {
-            loadCss( baseUrl + 'content-style.css' );
-            loadCss( baseUrl + 'fancybox/jquery.fancybox-1.3.4.css' );
-        }
-    })();
+
+        (function loadCSSFiles() {
+            if( ! resourceURL ) {
+                log( 'Could not load CSS files.' );
+                setTimeout( loadCSSFiles, 500 );
+            }
+            else {
+                loadCSS( resourceURL + 'content-style.css' );
+                loadCSS( resourceURL + 'fancybox/jquery.fancybox-1.3.4.css' );
+            }
+        })();
 
 /****** GENERAL PERIODIC FUNCTIONS ********************************************/
 
@@ -350,7 +367,7 @@
 
                 $.each( data.files, function( i, file ) {
                     var url = 'http://dl.dropbox.com/u/' + data.uid + '/pigeon-carrier/' + file.name;
-                    var $li = $( '<li><img src="' + baseUrl
+                    var $li = $( '<li><img src="' + resourceURL
                         + 'icons/16x16/' + file.icon + '.gif' + '"'
                         + ' alt="File Attachment"></img>' + file.name + '<span'
                         + ' class="actions"><a href="' + url + '">'
@@ -466,19 +483,20 @@
             event.preventDefault();
         } );
 
-        // chrome.extension.sendRequest( { type: 'has_oauth_token?' }, 
-        //     function( response ) {
-        //         if( response.answer == true )
-        //             authorize();
-        //     } );
+        if( LocalStorage.has( 'token' ) && LocalStorage.has( 'secret' ) )
+            onAuthorized(); // already authenticated
     }
 
     function authorize() {
-        // chrome.extension.sendRequest( { type: 'oauth' }, function( response ) {
-        //     if( response.success )
-        //         onAuthorized();
-        // } );
         log( 'Authorizing...' );
+        self.port.emit( 'startOAuth' );
+
+        self.port.on( 'endOAuth', function( token, secret ) {
+            // no need to re-authenticate if local storage is used
+            LocalStorage.set( 'token', token );
+            LocalStorage.set( 'secret', secret );
+            onAuthorized();
+        } );
     }
 
     function onAuthorized() {
@@ -723,6 +741,8 @@
                 id: 'file-wrapper'
             } );
 
+            log( 'input type="file"' );
+
             $( '<input type="file" name="attachments[]"'
                 + ' multiple="true"></input>' )
                 .change( changeHandler )
@@ -806,7 +826,7 @@
                 }
 
                 $attachmentList.append( $( '<li><a ' + attrs + '>'
-                    + '<img src="' + baseUrl
+                    + '<img src="' + resourceURL
                     + 'icons/16x16/' + file.icon + '.gif'
                     + '" alt="File Attachment"></img>'
                     // only file name; strip /Public/pigeon-carrier/
@@ -815,6 +835,8 @@
                 // keep track of which files are in the list
                 inList[ fileName ] = true;
             };
+
+            log( 'numSelected = 0' );
 
             var numSelected = 0;
             function updateSelected( fileAdded ) {
@@ -934,6 +956,8 @@
                 }
             };
 
+            log( 'dirMetadata.contents' );
+
             // may not exist if pigeon-carrier directory was just created
             if( dirMetadata.contents )
             {
@@ -970,6 +994,7 @@
             $fileUploadProgress.appendTo( $attachmentOptions );
         }
 
+        log( 'Sliding down' );
         $attachmentOptions.slideDown( 400, function() {
             if( dirMetadata ) // success
                 $addAttachment.text( 'Attach' );
@@ -1085,25 +1110,18 @@
     /**
      * Loads a custom CSS file dynamically into the browser via
      * a link tag in the head section. This is necessary because 
-     * Firefox addons do not support injected CSS
-     *
-     * @return nothing
+     * Firefox addons do not support injected CSS.
      */
+    function loadCSS( url ) {
+        log( 'Loading CSS file: ' + url );
+        var $head = $( 'head' );
 
-    function loadCss( url ) {
-        log( 'attempting to load ' + url );
-        $head = $( 'head' );
-
-        if ( $head.children( 'link[href="' + url + '"]' ).length == 0 ) {
+        if( $head.children( 'link[href="' + url + '"]' ).length == 0 )
             $link = $( '<link>', {
                 href: url,
                 rel: 'stylesheet',
                 type: 'text/css',
             } ).appendTo( $head );
-            log( url + ' loaded' );
-        } else {
-            log( url + ' already loaded' );
-        }
     }
 
     /**
