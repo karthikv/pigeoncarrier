@@ -1,9 +1,11 @@
 {
     "name": "pigeoncarrier", 
     "license": "GPL", 
-    "author": "Robert Ying and Karthik Viswanathan", 
+    "author": "Pigeon Carrier",
+    "contributors": [ "Karthik Viswanathan", "Robert Ying" ],
     "version": "1.0", 
     "fullName": "Pigeon Carrier", 
     "id": "jid1-GRBgkc4XLzDIuA", 
-    "description": "Twitter attachments"
+    "description": "No, we don't carry pigeons, but we do carry your Twitter attachments!",
+    "homepage": "http://pigeoncarrier.com"
 }

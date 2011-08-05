@@ -32,6 +32,12 @@
         log( 'Resource URL obtained: ' + url );
         resourceURL = url;
     } );
+    
+    self.port.on( 'upload-progress', function ( data ) {
+        log ( data.filename + " progress: " + ( data.progress * 100 ) + "%" );
+        updateProgress( data.filename, data.progress );
+    } );
+
 
     var 
 

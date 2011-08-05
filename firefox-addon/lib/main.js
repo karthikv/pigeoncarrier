@@ -77,6 +77,9 @@ pageMod.PageMod( {
                 if( req.readyState == 4 ) {
                     console.log( 'Response: ', req.status, req.responseText );
                     worker.port.emit( 'receiveFile', req.status, req.responseText );
+
+                    worker.port.emit( 'upload-progress',
+                            { filename: name, progress: 1 } );
                 }
             };
 
