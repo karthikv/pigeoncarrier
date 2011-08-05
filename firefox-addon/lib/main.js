@@ -2,6 +2,7 @@ var pageMod = require( 'page-mod' ), // attach content script to page
     data = require( 'self' ).data, // retreive files from /data
     request = require( 'request' ),
     xhr = require( 'xhr' ),
+    {Cc,Ci} = require("chrome"),
     oauth;
 
 pageMod.PageMod( {
@@ -42,23 +43,21 @@ pageMod.PageMod( {
             var req = request.Request( {
                 url: url,
                 onComplete: function( response ) {
-                    console.log( 'Response: ', response.status, response.text );
+                    console.log( 'Response: ', response.status );
                     worker.port.emit( 'receiveResponse', response.status, response.text );
                 }
             } );
 
-            if( method == 'GET' ) {
-                console.log( 'GET' );
+            if( method == 'GET' )
                 req.get();
-            }
-            else {
-                console.log( 'POST' );
+            else
                 req.post();
-            }
         } );
 
         worker.port.on( 'sendFile', function( url, name, size, type, binary ) {
-            var req = new xhr.XMLHttpRequest();
+            console.log( 'Request: ', url );
+            var req = Cc[ '@mozilla.org/xmlextras/xmlhttprequest;1' ]
+                        .createInstance( Ci.nsIXMLHttpRequest );
             var boundary = 'xxxxxxxxx';
 
             var body = "--" + boundary + "\r\n";
@@ -66,8 +65,6 @@ pageMod.PageMod( {
             body += "Content-Type: " + type + "\r\n\r\n";
             body += binary + "\r\n";
             body += "--" + boundary + "--";
-
-            console.log( 'Request: ', body, url );
   
             req.open( 'POST', url, true );
             req.setRequestHeader( 'Content-Length', size );
@@ -75,12 +72,15 @@ pageMod.PageMod( {
 
             req.onreadystatechange = function() {
                 if( req.readyState == 4 ) {
-                    console.log( 'Response: ', req.status, req.responseText );
+                    console.log( 'Response: ', req.status );
                     worker.port.emit( 'receiveFile', req.status, req.responseText );
-
-                    worker.port.emit( 'upload-progress',
-                            { filename: name, progress: 1 } );
+                    worker.port.emit( 'uploadProgress', { name: name, progress: 1 } );
                 }
+            };
+
+            req.upload.onprogress = function( event ) {
+                worker.port.emit( 'uploadProgress', { name: name, 
+                    progress: event.position / event.totalSize } );
             };
 
             req.sendAsBinary( body );

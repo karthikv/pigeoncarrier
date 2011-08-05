@@ -24,7 +24,7 @@
             console.assert( condition );
     }
 
-/****** RESOURCE URL **********************************************************/
+/****** RESOURCE URL AND PROGRESS *********************************************/
 
     var resourceURL; // resource url string
 
@@ -33,9 +33,9 @@
         resourceURL = url;
     } );
     
-    self.port.on( 'upload-progress', function ( data ) {
-        log ( data.filename + " progress: " + ( data.progress * 100 ) + "%" );
-        updateProgress( data.filename, data.progress );
+    self.port.on( 'uploadProgress', function ( data ) {
+        log( data.name + " progress: " + ( data.progress * 100 ) + "%" );
+        updateProgress( data.name, data.progress );
     } );
 
 
