@@ -32,10 +32,8 @@
   * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-var OAuthSimple;
-
-if (OAuthSimple === undefined)
-{
+// self-invoking anonymous function to prevent pollution of the global namespace
+(function() {
     /* Simple OAuth
      *
      * This class only builds the OAuth elements, it does not do the actual
@@ -78,7 +76,7 @@ if (OAuthSimple === undefined)
      * @param api_key {string}       The API Key (sometimes referred to as the consumer key) This value is usually supplied by the site you wish to use.
      * @param shared_secret (string) The shared secret. This value is also usually provided by the site you wish to use.
      */
-    OAuthSimple = function (consumer_key,shared_secret)
+    exports.oauth = function (consumer_key,shared_secret)
     {
 /*        if (api_key == undefined)
             throw("Missing argument: api_key (oauth_consumer_key) for OAuthSimple. This is usually provided by the hosting site.");
@@ -453,9 +451,7 @@ if (OAuthSimple === undefined)
             return null;
         };
 
-    return this;
+        return this;
     };
-}
-
-exports.oauth = OAuthSimple;
+})();
 

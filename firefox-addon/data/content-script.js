@@ -102,7 +102,7 @@
                 oauth_secret: LocalStorage.get( 'secret' )
             },
 
-            request: function( url, method, parameters, callback ) {
+            request: function( url, method, parameters, callback, unique ) {
                 var data = OAuthSimple().sign( {
                     action: method,
                     path: url,
@@ -111,10 +111,12 @@
                 } );
 
                 // cross-site XHR requests must be done in the add-on script
-                self.port.emit( 'sendRequest', data.signed_url, method );
-                self.port.once( 'receiveResponse', function( status, response ) {
-                    Dropbox.statusCallback( status, response, callback );
-                } );
+                // add some unique identifier to allow for concurrent requests
+                self.port.emit( 'sendRequest', data.signed_url, method, unique );
+                self.port.once( 'receiveResponse-' + unique,
+                    function( status, response ) {
+                        Dropbox.statusCallback( status, response, callback );
+                    } );
             },
 
             metadata: function( path, callback ) {
@@ -149,36 +151,39 @@
                                 callback( status, response );
                                 break;
                         }
-                    } );
+                    }, 'metadata-' + path );
             },
 
             getAccountInfo: function( callback ) {
                 this.request( 'https://api.dropbox.com/0/account/info',
-                    'GET', { }, callback );
+                    'GET', { }, callback, 'account-info' );
             },
 
             createFolder: function( path, callback ) {
                 this.request( 'https://api.dropbox.com/0/fileops/create_folder',
-                    'POST', { path: path, root: 'dropbox' }, callback );
+                    'POST', { path: path, root: 'dropbox' }, callback,
+                    'create-folder' );
             },
 
             uploadFile: function( binary, file, callback ) {
-                var data = OAuthSimple().sign( {
-                    action: 'POST',
-                    path: 'https://api-content.dropbox.com/0/files/dropbox/Public/'
-                        + 'pigeon-carrier/',
-                    parameters: {
-                        file: file.name
-                    },
-                    signatures: this.signatures
-                } );
+                var name = file.name,
+                    data = OAuthSimple().sign( {
+                        action: 'POST',
+                        path: 'https://api-content.dropbox.com/0/files/dropbox/Public/'
+                            + 'pigeon-carrier/',
+                        parameters: {
+                            file: name
+                        },
+                        signatures: this.signatures
+                    } );
 
                 // cross-site XHR requests must be done in the add-on script
-                self.port.emit( 'sendFile', data.signed_url, file.name,
-                    file.size, file.type, binary );
-                self.port.once( 'receiveFile', function( status, response ) {
-                    Dropbox.statusCallback( status, response, callback );
-                } );
+                self.port.emit( 'sendFile', data.signed_url, name, file.size,
+                    file.type, binary );
+                self.port.once( 'receiveFile-' + name,
+                    function( status, response ) {
+                        Dropbox.statusCallback( status, response, callback );
+                    } );
             },
 
             statusCallback: function( status, response, callback ) {
@@ -1047,6 +1052,7 @@
 
                     switch( status ) {
                         case 200:
+                            log( 'Getting metadata ' + file.name );
                             Dropbox.metadata( 'Public/pigeon-carrier/' + file.name,
                                 function( status, response ) {
                                     switch( status ) {
