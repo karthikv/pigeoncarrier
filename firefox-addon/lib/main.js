@@ -39,7 +39,6 @@ pageMod.PageMod( {
 
         worker.port.on( 'sendRequest', function( url, method ) {
             console.log( 'Request: ', url );
-
             var req = request.Request( {
                 url: url,
                 onComplete: function( response ) {
@@ -74,13 +73,14 @@ pageMod.PageMod( {
                 if( req.readyState == 4 ) {
                     console.log( 'Response: ', req.status );
                     worker.port.emit( 'receiveFile', req.status, req.responseText );
-                    worker.port.emit( 'uploadProgress', { name: name, progress: 1 } );
+                    worker.port.emit( 'uploadProgress', name, 1 );
                 }
             };
 
             req.upload.onprogress = function( event ) {
-                worker.port.emit( 'uploadProgress', { name: name, 
-                    progress: event.position / event.totalSize } );
+                // event.position is the number of bytes uploaded;
+                // event.totalSize is the total number of bytes to upload
+                worker.port.emit( 'uploadProgress', name, event.position / event.totalSize );
             };
 
             req.sendAsBinary( body );

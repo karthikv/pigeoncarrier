@@ -24,7 +24,7 @@
             console.assert( condition );
     }
 
-/****** RESOURCE URL AND PROGRESS *********************************************/
+/****** RESOURCE URL **********************************************************/
 
     var resourceURL; // resource url string
 
@@ -33,12 +33,6 @@
         resourceURL = url;
     } );
     
-    self.port.on( 'uploadProgress', function ( data ) {
-        log( data.name + " progress: " + ( data.progress * 100 ) + "%" );
-        updateProgress( data.name, data.progress );
-    } );
-
-
     var 
 
 /****** ATTACHMENT ADDING VARIABLES *******************************************/
@@ -100,40 +94,27 @@
         
         // Dropbox helper object
         Dropbox = {
+            // oauth signatures for making signed requests
+            signatures: {
+                consumer_key: 'c55r4vo6vfmxx08',
+                shared_secret: 'qa5k89zc3vxcusx',
+                oauth_token: LocalStorage.get( 'token' ),
+                oauth_secret: LocalStorage.get( 'secret' )
+            },
+
             request: function( url, method, parameters, callback ) {
                 var data = OAuthSimple().sign( {
                     action: method,
                     path: url,
                     parameters: parameters,
-                    signatures: {
-                        consumer_key: 'c55r4vo6vfmxx08',
-                        shared_secret: 'qa5k89zc3vxcusx',
-                        oauth_token: LocalStorage.get( 'token' ),
-                        oauth_secret: LocalStorage.get( 'secret' )
-                    }
+                    signatures: this.signatures
                 } );
 
-                log( 'Sending request: ' + method + ' ' + data.signed_url );
+                // cross-site XHR requests must be done in the add-on script
                 self.port.emit( 'sendRequest', data.signed_url, method );
-
                 self.port.once( 'receiveResponse', function( status, response ) {
-                    log( 'Received response!' );
-                    if( status == 200 )
-                        response = JSON.parse( response );
-                    callback( status, response );
+                    Dropbox.statusCallback( status, response, callback );
                 } );
-
-                /*
-                $.ajax( {
-                    type: 'GET',
-                    url: 'https://api.dropbox.com/0/metadata/dropbox/Public/pigeon-carrier',
-                    data: parameters,
-                    complete: function( xhr ) {
-                        log( 'XHR: ' + xhr.status + ' ' + xhr.responseText );
-                        Dropbox.xhrCallback( xhr, callback );
-                    }
-                } );
-                */
             },
 
             metadata: function( path, callback ) {
@@ -189,50 +170,21 @@
                     parameters: {
                         file: file.name
                     },
-                    signatures: {
-                        consumer_key: 'c55r4vo6vfmxx08',
-                        shared_secret: 'qa5k89zc3vxcusx',
-                        oauth_token: LocalStorage.get( 'token' ),
-                        oauth_secret: LocalStorage.get( 'secret' )
-                    }
+                    signatures: this.signatures
                 } );
 
-                log( 'Sending request: ' + data.signed_url );
+                // cross-site XHR requests must be done in the add-on script
                 self.port.emit( 'sendFile', data.signed_url, file.name,
                     file.size, file.type, binary );
-
                 self.port.once( 'receiveFile', function( status, response ) {
-                    log( 'Received response!' );
-                    if( status == 200 )
-                        response = JSON.parse( response );
-                    callback( status, response );
+                    Dropbox.statusCallback( status, response, callback );
                 } );
-
-                // chrome.extension.sendRequest( {
-                //     type: 'signed_request_file', 
-                //     url: 'https://api-content.dropbox.com/0/files/dropbox/Public/'
-                //         + 'pigeon-carrier/',
-                //     data: {
-                //         method: 'POST',
-                //         parameters: {
-                //             file: file.name
-                //         }
-                //     },
-                //     file: file,
-                //     binary: binary
-                // }, function( data ) {
-                //     if( data.error )
-                //         callback( data );
-                //     else
-                //         Dropbox.xhrCallback( data, callback );
-                // } );
             },
 
-            xhrCallback: function( xhr, callback ) {
-                if( xhr.status == 200 )
-                    callback( xhr.status, JSON.parse( xhr.responseText ) );
-                else
-                    callback( xhr.status, xhr.responseText );
+            statusCallback: function( status, response, callback ) {
+                if( status == 200 )
+                    response = JSON.parse( response );
+                callback( status, response );
             }
         },
 
@@ -303,20 +255,19 @@
     // when the document is ready...
     $(function() {
 
-/****** LOAD CSS FILES ********************************************************/
+/****** GENERAL PERIODIC FUNCTIONS ********************************************/
 
+        /**
+         * Loads CSS files via link elements in the head tag.
+         */
         (function loadCSSFiles() {
-            if( ! resourceURL ) {
-                log( 'Could not load CSS files.' );
+            if( ! resourceURL )
                 setTimeout( loadCSSFiles, 500 );
-            }
             else {
                 loadCSS( resourceURL + 'content-style.css' );
                 loadCSS( resourceURL + 'fancybox/jquery.fancybox-1.3.4.css' );
             }
         })();
-
-/****** GENERAL PERIODIC FUNCTIONS ********************************************/
 
         /**
          * Triggers and resets the extension at the right times, as prescribed
@@ -783,8 +734,6 @@
                 id: 'file-wrapper'
             } );
 
-            log( 'input type="file"' );
-
             function changeHandler( event )
             {
                 processFiles( this.files );
@@ -878,8 +827,6 @@
                 inList[ fileName ] = true;
             };
 
-            log( 'numSelected = 0' );
-
             var numSelected = 0;
             function updateSelected( fileAdded ) {
                 if( fileAdded )
@@ -959,14 +906,11 @@
 
                 // if it doesn't exist, create a new one
                 if( $uploadProgress.length <= 0 )
-                {
                     $uploadProgress = $( '<li><span class="name">' + name
                         + '</span><div></div><span class="percent">0%</span>'
                         + '</li>' )
                         .attr( 'data-name', name )
                         .appendTo( $fileUploadProgress );
-                    log( 'Creating new list element' );
-                }
 
                 var percent = Math.round( progress * 100 );
 
@@ -997,8 +941,6 @@
                     })( name );
                 }
             };
-
-            log( 'dirMetadata.contents' );
 
             // may not exist if pigeon-carrier directory was just created
             if( dirMetadata.contents )
@@ -1036,7 +978,6 @@
             $fileUploadProgress.appendTo( $attachmentOptions );
         }
 
-        log( 'Sliding down' );
         $attachmentOptions.slideDown( 400, function() {
             if( dirMetadata ) // success
                 $addAttachment.text( 'Attach' );
@@ -1080,14 +1021,11 @@
         } );
     }
 
-    // get the upload progress from the background script
-    // chrome.extension.onConnect.addListener( function( port ) {
-    //     assert( port.name == 'uploadProgress' );
-    //     port.onMessage.addListener( function( data ) {
-    //         updateProgress( data.name, data.progress );
-    //         log( 'Updating progress: ', data.name, data.progress );
-    //     } );
-    // } );
+    // get the upload progress from the add-on script
+    self.port.on( 'uploadProgress', function( name, progress ) {
+        // updateProgress itself can't be the handler because its value changes
+        updateProgress( name, progress );
+    } );
 
     function makeUploadRequest( event, file ) {
         // finished reading the file
@@ -1151,8 +1089,7 @@
 
     /**
      * Loads a custom CSS file dynamically into the browser via
-     * a link tag in the head section. This is necessary because 
-     * Firefox addons do not support injected CSS.
+     * a link tag in the head section.
      */
     function loadCSS( url ) {
         log( 'Loading CSS file: ' + url );
