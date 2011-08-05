@@ -95,7 +95,7 @@
         // Dropbox helper object
         Dropbox = {
             request: function( url, method, parameters, callback ) {
-                var parameters = OAuthSimple().sign( {
+                var data = OAuthSimple().sign( {
                     action: method,
                     path: url,
                     parameters: parameters,
@@ -105,10 +105,19 @@
                         oauth_token: LocalStorage.get( 'token' ),
                         oauth_secret: LocalStorage.get( 'secret' )
                     }
-                } ).parameters;
+                } );
 
-                log( 'Sending request: ' + method + ' ' + url + ' ' + parameters );
+                log( 'Sending request: ' + method + ' ' + data.signed_url );
+                self.port.emit( 'sendRequest', data.signed_url, method );
 
+                self.port.once( 'receiveResponse', function( status, response ) {
+                    log( 'Received response!' );
+                    if( status == 200 )
+                        response = JSON.parse( response );
+                    callback( status, response );
+                } );
+
+                /*
                 $.ajax( {
                     type: 'GET',
                     url: 'https://api.dropbox.com/0/metadata/dropbox/Public/pigeon-carrier',
@@ -118,6 +127,7 @@
                         Dropbox.xhrCallback( xhr, callback );
                     }
                 } );
+                */
             },
 
             metadata: function( path, callback ) {
@@ -166,6 +176,32 @@
             },
 
             uploadFile: function( binary, file, callback ) {
+                var data = OAuthSimple().sign( {
+                    action: 'POST',
+                    path: 'https://api-content.dropbox.com/0/files/dropbox/Public/'
+                        + 'pigeon-carrier/',
+                    parameters: {
+                        file: file.name
+                    },
+                    signatures: {
+                        consumer_key: 'c55r4vo6vfmxx08',
+                        shared_secret: 'qa5k89zc3vxcusx',
+                        oauth_token: LocalStorage.get( 'token' ),
+                        oauth_secret: LocalStorage.get( 'secret' )
+                    }
+                } );
+
+                log( 'Sending request: ' + data.signed_url );
+                self.port.emit( 'sendFile', data.signed_url, file.name,
+                    file.size, file.type, binary );
+
+                self.port.once( 'receiveFile', function( status, response ) {
+                    log( 'Received response!' );
+                    if( status == 200 )
+                        response = JSON.parse( response );
+                    callback( status, response );
+                } );
+
                 // chrome.extension.sendRequest( {
                 //     type: 'signed_request_file', 
                 //     url: 'https://api-content.dropbox.com/0/files/dropbox/Public/'
@@ -743,17 +779,6 @@
 
             log( 'input type="file"' );
 
-            $( '<input type="file" name="attachments[]"'
-                + ' multiple="true"></input>' )
-                .change( changeHandler )
-                .bind( 'dragenter dragleave', function( event ) {
-                    // only target on this element; ignore bubbling
-                    if( event.target == this )
-                        // change styles to acknowledge drop
-                        $fileWrapper.toggleClass( 'dragging' );
-                } )
-                .appendTo( $fileWrapper );
-
             function changeHandler( event )
             {
                 processFiles( this.files );
@@ -764,6 +789,17 @@
                         + 'multiple="true"></input>' ).change( changeHandler );
                 } );
             }
+
+            $( '<input type="file" name="attachments[]"'
+                + ' multiple="true"></input>' )
+                .change( changeHandler )
+                .bind( 'dragenter dragleave', function( event ) {
+                    // only target on this element; ignore bubbling
+                    if( event.target == this )
+                        // change styles to acknowledge drop
+                        $fileWrapper.toggleClass( 'dragging' );
+                } )
+                .appendTo( $fileWrapper );
 
             // default action and bubbling be stopped for drop event to fire
             $fileWrapper.bind( 'dragover dragenter', false );
@@ -1049,7 +1085,7 @@
 
     function makeUploadRequest( event, file ) {
         // finished reading the file
-        if( event.target.readyState == FileReader.DONE )
+        if( event.target.readyState == 2 )
         {
             log( 'Reading done; sending request!' );
 

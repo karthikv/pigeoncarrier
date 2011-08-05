@@ -1,5 +1,6 @@
 var pageMod = require( 'page-mod' ), // attach content script to page
     data = require( 'self' ).data, // retreive files from /data
+    request = require( 'request' ),
     oauth;
 
 pageMod.PageMod( {
@@ -32,6 +33,54 @@ pageMod.PageMod( {
                 console.log( 'OAuth successful: ' + token + ' ' + secret );
                 worker.port.emit( 'endOAuth', token, secret );
             } );
+        } );
+
+        worker.port.on( 'sendRequest', function( url, method ) {
+            console.log( 'Request: ', url );
+
+            var req = request.Request( {
+                url: url,
+                onComplete: function( response ) {
+                    console.log( 'Response: ', response.status, response.text );
+                    worker.port.emit( 'receiveResponse', response.status, response.text );
+                }
+            } );
+
+            if( method == 'GET' ) {
+                console.log( 'GET' );
+                req.get();
+            }
+            else {
+                console.log( 'POST' );
+                req.post();
+            }
+        } );
+
+        worker.port.on( 'sendFile', function( url, name, size, type, binary ) {
+            var boundary = 'xxxxxxxxx';
+
+            var body = "--" + boundary + "\r\n";
+            body += 'Content-Disposition: form-data; name="file"; filename="' + name + "\"\r\n";
+            body += "Content-Type: " + type + "\r\n\r\n";
+            body += binary + "\r\n";
+            body += "--" + boundary + "--";
+
+            console.log( 'Request: ', body, url );
+  
+            var req = request.Request( {
+                url: url,
+                headers: {
+                    'Content-Length': size
+                },
+                contentType: 'multipart/form-data; boundary=' + boundary,
+                content: body,
+                onComplete: function( response ) {
+                    console.log( 'Response: ', response.status, response.text );
+                    worker.port.emit( 'receiveFile', response.status, response.text );
+                }
+            } );
+
+            req.post();
         } );
     }
 } );
