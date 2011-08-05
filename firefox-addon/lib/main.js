@@ -1,6 +1,7 @@
 var pageMod = require( 'page-mod' ), // attach content script to page
     data = require( 'self' ).data, // retreive files from /data
     request = require( 'request' ),
+    xhr = require( 'xhr' ),
     oauth;
 
 pageMod.PageMod( {
@@ -57,6 +58,7 @@ pageMod.PageMod( {
         } );
 
         worker.port.on( 'sendFile', function( url, name, size, type, binary ) {
+            var req = new xhr.XMLHttpRequest();
             var boundary = 'xxxxxxxxx';
 
             var body = "--" + boundary + "\r\n";
@@ -67,20 +69,18 @@ pageMod.PageMod( {
 
             console.log( 'Request: ', body, url );
   
-            var req = request.Request( {
-                url: url,
-                headers: {
-                    'Content-Length': size
-                },
-                contentType: 'multipart/form-data; boundary=' + boundary,
-                content: body,
-                onComplete: function( response ) {
-                    console.log( 'Response: ', response.status, response.text );
-                    worker.port.emit( 'receiveFile', response.status, response.text );
-                }
-            } );
+            req.open( 'POST', url, true );
+            req.setRequestHeader( 'Content-Length', size );
+            req.setRequestHeader( 'Content-Type', 'multipart/form-data; boundary=' + boundary );
 
-            req.post();
+            req.onreadystatechange = function() {
+                if( req.readyState == 4 ) {
+                    console.log( 'Response: ', req.status, req.responseText );
+                    worker.port.emit( 'receiveFile', req.status, req.responseText );
+                }
+            };
+
+            req.sendAsBinary( body );
         } );
     }
 } );
