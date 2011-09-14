@@ -7,6 +7,7 @@ cd ../..
 echo 'Copying extension directory...'
 if [ -d 'extension-deployed' ]
 then
+    echo 'Removing old extension-deployed directory...'
     rm -rf extension-deployed
 fi
 cp -r extension extension-deployed

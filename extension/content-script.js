@@ -301,7 +301,7 @@
 
         (function processAttachments() {
             var a = 'a[data-expanded-url]';
-            $( '.pretty-link ' + a + ', .linked-text ' + a ).each( function() {
+            $( '.tweet-text ' + a + ', .linked-text ' + a ).each( function() {
                 var $this = $(this);
                 var url = $this.data( 'expanded-url' );
 

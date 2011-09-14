@@ -1,6 +1,6 @@
 {
     "name": "Pigeon Carrier",
-    "version": "1.0",
+    "version": "1.1",
     "description": "No, we don't carry pigeons, but we do carry your Twitter attachments!",
 
     "background_page": "background.html",
