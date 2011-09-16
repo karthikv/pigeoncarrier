@@ -190,6 +190,15 @@
                 if( status == 200 )
                     response = JSON.parse( response );
                 callback( status, response );
+            },
+
+            updateAuthentication: function( token, secret ) {
+                // no need to re-authenticate if local storage is used
+                LocalStorage.set( 'token', token );
+                LocalStorage.set( 'secret', secret );
+
+                this.signatures.oauth_token = token;
+                this.signatures.oauth_secret = secret;
             }
         },
 
@@ -490,9 +499,7 @@
         self.port.emit( 'startOAuth' );
 
         self.port.on( 'endOAuth', function( token, secret ) {
-            // no need to re-authenticate if local storage is used
-            LocalStorage.set( 'token', token );
-            LocalStorage.set( 'secret', secret );
+            Dropbox.updateAuthentication( token, secret );
             onAuthorized();
         } );
     }
