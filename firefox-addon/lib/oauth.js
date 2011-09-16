@@ -2,8 +2,7 @@
 (function() {
     const data = require( 'self' ).data,
         request = require( 'request' ),
-        tabs = require( 'tabs' ),
-        simple = require( 'oauth-simple' );
+        tabs = require( 'tabs' );
 
     exports.oauth = function( requestURL, authorizeURL, accessURL, key, secret ) {
         // Step 1: Obtain request token
@@ -12,7 +11,7 @@
             var requestToken, requestSecret;
 
             request.Request( {
-                url: simple.oauth().sign( {
+                url: require( 'oauth-simple' ).oauth.sign( {
                     path: requestURL,
                     parameters: { },
                     signatures: {
@@ -62,7 +61,7 @@
             var accessToken, accessSecret;
 
             request.Request( {
-                url: simple.oauth().sign( {
+                url: require( 'oauth-simple' ).oauth.sign( {
                     path : accessURL,
                     parameters: {
                         oauth_token: requestToken

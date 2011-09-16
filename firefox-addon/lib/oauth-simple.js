@@ -76,7 +76,7 @@
      * @param api_key {string}       The API Key (sometimes referred to as the consumer key) This value is usually supplied by the site you wish to use.
      * @param shared_secret (string) The shared secret. This value is also usually provided by the site you wish to use.
      */
-    exports.oauth = function (consumer_key,shared_secret)
+    OAuthSimple = function (consumer_key,shared_secret)
     {
 /*        if (api_key == undefined)
             throw("Missing argument: api_key (oauth_consumer_key) for OAuthSimple. This is usually provided by the hosting site.");
@@ -453,5 +453,7 @@
 
         return this;
     };
+
+    exports.oauth = OAuthSimple();
 })();
 
