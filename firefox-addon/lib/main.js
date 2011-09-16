@@ -16,7 +16,7 @@
             data.url( 'jquery.min.js' ), // load jQuery
             data.url( 'fancybox/jquery.fancybox-1.3.4.pack.js' ), // load fancybox
             data.url( 'scribd/view.js' ), // load scribd javascript api
-            data.url( 'oauth/oauth-simple.js' ), // oauth helper
+            data.url( 'oauth/oauth-client.js' ), // oauth helper
             data.url( 'content-script.js' ) // load content-script
         ],
 
